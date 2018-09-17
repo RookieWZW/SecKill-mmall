@@ -10,6 +10,8 @@ import com.imooc.miaosha.dao.OrderDao;
 import com.imooc.miaosha.domain.MiaoshaOrder;
 import com.imooc.miaosha.domain.MiaoshaUser;
 import com.imooc.miaosha.domain.OrderInfo;
+import com.imooc.miaosha.redis.OrderKey;
+import com.imooc.miaosha.redis.RedisService;
 import com.imooc.miaosha.vo.GoodsVo;
 
 @Service
@@ -17,9 +19,13 @@ public class OrderService {
 
 	@Autowired
 	private OrderDao orderDao;
+	
+	@Autowired
+	private RedisService redisService;
 
 	public MiaoshaOrder getMiaoshaOrderByUserIdGoodsId(long userId, long goodsId) {
-		return orderDao.getMiaoshaOrderByUserIdGoodsId(userId, goodsId);
+		//return orderDao.getMiaoshaOrderByUserIdGoodsId(userId, goodsId);
+		return redisService.get(OrderKey.getMiaoshaOrderByUidGid, ""+userId+"_"+goodsId, MiaoshaOrder.class);
 	}
 
 	@Transactional
@@ -35,17 +41,25 @@ public class OrderService {
 		orderInfo.setOrderChannel(1);
 		orderInfo.setStatus(0);
 		orderInfo.setUserId(user.getId());
-
-		long orderId = orderDao.insert(orderInfo);
-
+		orderDao.insert(orderInfo);
 		MiaoshaOrder miaoshaOrder = new MiaoshaOrder();
 		miaoshaOrder.setGoodsId(goods.getId());
-		miaoshaOrder.setOrderId(orderId);
+		miaoshaOrder.setOrderId(orderInfo.getId());
 		miaoshaOrder.setUserId(user.getId());
-
 		orderDao.insertMiaoshaOrder(miaoshaOrder);
-
+		
+		redisService.set(OrderKey.getMiaoshaOrderByUidGid, ""+user.getId()+"_"+goods.getId(), miaoshaOrder);
+		 
 		return orderInfo;
 
+	}
+	
+	public OrderInfo getOrderById(long orderId) {
+		return orderDao.getOrderById(orderId);
+	}
+	
+	public void deleteOrders() {
+		orderDao.deleteOrders();
+		orderDao.deleteMiaoshaOrders();
 	}
 }
